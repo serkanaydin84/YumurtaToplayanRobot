@@ -26,15 +26,14 @@ int degreeOrta;
 int yumurtaKirmizi, yumurtaYesil, yumurtaMavi = 0;
 int zeminKirmizi, zeminYesil, zeminMavi = 0;
 
-String bizimRengimiz = "kirmizi";  // arkadaki renk sensörünün okuduğu değer atanacak
+bool start = true;    // ilk başta zemini algılayacak ve bu değişken bir defalığına bizimRengimiz değişkenine zemin değerini atadıktan sonra false değerini alarak yarışma sonuna kadar değişmeyecek
+String bizimRengimiz;  // arkadaki renk sensörünün okuduğu değer atanacak
 String yumurtaRengi;    // ortadaki renk sensörünün okuduğu değer atanacak
 String zeminRengi;    // arkadaki renk sensörünün okuduğu değer atanacak
 
 void setup() {
   pinMode(csOrta_s0, OUTPUT);  pinMode(csOrta_s1, OUTPUT);  pinMode(csOrta_s2, OUTPUT);  pinMode(csOrta_s3, OUTPUT);  pinMode(csOrta_out, INPUT);
-
   pinMode(csArka_s0, OUTPUT);  pinMode(csArka_s1, OUTPUT);  pinMode(csArka_s2, OUTPUT);  pinMode(csArka_s3, OUTPUT);  pinMode(csArka_out, INPUT);
-  
   pinMode(kled, OUTPUT);  pinMode(yled, OUTPUT);  pinMode(mled, OUTPUT);
   
   // Arduino için Frekans değerini ayarladık
@@ -49,9 +48,10 @@ void setup() {
 void loop() {
   //kalibreEt();
   //kalibreEtZemin();
-  kalibreEdilmis();
-  kalibreEdilmisZemin();
+  ortaRenkSensorOku();
+  arkaRenkSensorOku();
   yumurtaRengiOku();
+  zeminRengiOku();
 
   //servoOrtaKalibreEt();
   servoOrtaDon(yumurtaRengi);
@@ -74,16 +74,18 @@ void servoOrtaDon(String renk) {
   }
 }
 
-void kalibreEdilmis() {
+void ortaRenkSensorOku() {
   delay(1000);
   // Kırmızı rengi belirleme
   digitalWrite(csOrta_s2, LOW);
   digitalWrite(csOrta_s3, LOW);
   yumurtaKirmizi = pulseIn(csOrta_out, LOW);
   yumurtaKirmizi = map(yumurtaKirmizi, 48, 180, 0, 100);
+  /*
   Serial.print("Kırmızı renk: ");
   Serial.print(yumurtaKirmizi);
   Serial.print("\t");
+  */
   delay(50);
 
   
@@ -92,9 +94,11 @@ void kalibreEdilmis() {
   digitalWrite(csOrta_s3, HIGH);
   yumurtaYesil = pulseIn(csOrta_out, LOW);
   yumurtaYesil = map(yumurtaYesil, 43, 210, 0, 100);
+  /*
   Serial.print("Yeşil renk: ");
   Serial.print(yumurtaYesil);
   Serial.print("\t");
+  */
   delay(50);
 
   
@@ -103,23 +107,27 @@ void kalibreEdilmis() {
   digitalWrite(csOrta_s3, HIGH);
   yumurtaMavi = pulseIn(csOrta_out, LOW);
   yumurtaMavi = map(yumurtaMavi, 40, 190, 0, 100);
+  /*
   Serial.print("Mavi renk: ");
   Serial.print(yumurtaMavi);
   Serial.println("\t");
+  */
   delay(50);
 }
 
 
-void kalibreEdilmisZemin() {
+void arkaRenkSensorOku() {
   delay(1000);
   // Kırmızı ZEMİN rengi belirleme
   digitalWrite(csArka_s2, LOW);
   digitalWrite(csArka_s3, LOW);
   zeminKirmizi = pulseIn(csArka_out, LOW);
   zeminKirmizi = map(zeminKirmizi, 48, 180, 0, 100);
+  /*
   Serial.print("ZEMİN Kırmızı renk: ");
   Serial.print(zeminKirmizi);
   Serial.print("\t");
+  */
   delay(50);
 
   
@@ -128,9 +136,11 @@ void kalibreEdilmisZemin() {
   digitalWrite(csArka_s3, HIGH);
   zeminYesil = pulseIn(csArka_out, LOW);
   zeminYesil = map(zeminYesil, 43, 210, 0, 100);
+  /*
   Serial.print("ZEMİN Yeşil renk: ");
   Serial.print(zeminYesil);
   Serial.print("\t");
+  */
   delay(50);
 
   
@@ -139,47 +149,75 @@ void kalibreEdilmisZemin() {
   digitalWrite(csArka_s3, HIGH);
   zeminMavi = pulseIn(csArka_out, LOW);
   zeminMavi = map(zeminMavi, 40, 190, 0, 100);
+  /*
   Serial.print("ZEMİN Mavi renk: ");
   Serial.print(zeminMavi);
   Serial.println("\t");
+  */
   delay(50);
 }
 
 void yumurtaRengiOku() {
-  // beyaz algılanıyor
+  // Orta Sensör beyaz zemin algılanıyor
   if (yumurtaKirmizi < 0 and yumurtaMavi < 0 and yumurtaYesil < 0) {
     digitalWrite(kled, HIGH);
     digitalWrite(yled, HIGH);
     digitalWrite(mled, HIGH);
     yumurtaRengi = "beyaz";
-    Serial.println("Beyaz zemin algılandı");
+    Serial.println("Orta Sensör Beyaz zemin algıladı");
   }
-  // kırmızı algılanıyor
+  // Orta Sensör kırmızı algılanıyor
   else if (yumurtaKirmizi<90 and yumurtaKirmizi < yumurtaMavi and yumurtaKirmizi < yumurtaYesil) {
     digitalWrite(kled, HIGH);
     digitalWrite(yled, LOW);
     digitalWrite(mled, LOW);
     yumurtaRengi = "kirmizi";
-    Serial.println("Kırmızı yumurta algılandı");
+    Serial.println("Orta Sensör Kırmızı yumurta algıladı");
   }
-  // mavi algılanıyor
+  // Orta Sensör mavi algılanıyor
   else if (yumurtaMavi < yumurtaKirmizi and yumurtaMavi < yumurtaYesil ) {
     digitalWrite(mled, HIGH);
     digitalWrite(kled, LOW);
     digitalWrite(yled, LOW);
     yumurtaRengi = "mavi";
-    Serial.println("Mavi yumurta algılandı");
+    Serial.println("Orta Sensör Mavi yumurta algıladı");
   }
 }
 
 void zeminRengiOku() {
-  // beyaz zemin algılanıyor
+  // Arka Sensör beyaz zemin algılanıyor
   if (zeminKirmizi < 0 and zeminMavi < 0 and zeminYesil < 0) {
     digitalWrite(kled, HIGH);
     digitalWrite(yled, HIGH);
     digitalWrite(mled, HIGH);
     zeminRengi = "beyaz";
-    Serial.println("Beyaz zemin algılandı");
+    Serial.println("Arka Sensör Beyaz ZEMİN algıladı");
+  }
+  // Arka Sensör kırmızı zemin algılanıyor
+  else if (zeminKirmizi<90 and zeminKirmizi < zeminMavi and zeminKirmizi < zeminYesil) {
+    digitalWrite(kled, HIGH);
+    digitalWrite(yled, LOW);
+    digitalWrite(mled, LOW);
+    zeminRengi = "kirmizi";
+    if (start == true) {  // ilk sefer çalışacak sonra çalışmayacak
+      bizimRengimiz = "kirmizi";
+      start = false;  
+    }
+    
+    Serial.println("Arka Sensör Kırmızı ZEMİN algıladı");
+  }
+  // Arka Sensör mavi zemin algılanıyor
+  else if (zeminMavi < zeminKirmizi and zeminMavi < zeminYesil ) {
+    digitalWrite(mled, HIGH);
+    digitalWrite(kled, LOW);
+    digitalWrite(yled, LOW);
+    zeminRengi = "mavi";
+    if (start == true) {  // ilk sefer çalışacak sonra çalışmayacak
+      bizimRengimiz = "mavi";
+      start = false;  
+    }
+    
+    Serial.println("Arka Sensör Mavi ZEMİN algıladı");
   }
 }
 
