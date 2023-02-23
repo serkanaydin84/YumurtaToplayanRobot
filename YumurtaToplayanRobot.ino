@@ -14,13 +14,19 @@
 #define csArka_out 2
 
 // MZ-80 Sensörleri için tanımlamalarımızı yapıyoruz
-#define kLed 11           // Kırmızı ledlerimizi bağladık
-#define yLed 10           // Ve dahi Yeşil ledimizi bağladık
 #define mz80_SagOn A0     //sağ ön sensörümüzü A0 numaralı pine bağladık sensörümüzü
 #define mz80_SolOn A1     //sol ön sensörümüzü A1 numaralı pine bağladık sensörümüzü
 #define mz80_SagArka A2   //sağ arka sensörümüzü A2 numaralı pine bağladık sensörümüzü
 #define mz80_SolArka A3   //sol arka sensörümüzü A3 numaralı pine bağladık sensörümüzü
 #define mz80_Arka A4      //arka sensörümüzü A4 numaralı pine bağladık sensörümüzü
+
+// DC MOTOR TANIMLAMALARI
+#define enA 0
+#define enB 1
+#define in1 5
+#define in2 6
+#define in3 10
+#define in4 11
 
 Servo servoOrta;
 Servo servoArka;
@@ -28,8 +34,8 @@ Servo servoArka;
 int degreeOrta, degreeArka;
 int yumurtaKirmizi, yumurtaYesil, yumurtaMavi = 0;
 int zeminKirmizi, zeminYesil, zeminMavi = 0;
-
 int yumurtaSayisi = 0;
+int motorYonuSag = 0;
 
 bool start = true;        // ilk başta zemini algılayacak ve bu değişken bir defalığına bizimRengimiz değişkenine zemin değerini atadıktan sonra false değerini alarak yarışma sonuna kadar değişmeyecek
 bool koseneGit = false;   // yumurta sayısı yeteri kadar olduğunda ya da belli bir süre geçtiğinde köşesine gidip yumurtaları bırakmak için tanımlandı
@@ -51,8 +57,6 @@ void setup() {
 
   // **************************************
   // MZ-80 MESAFE SENSÖR AYARLARI
-  pinMode(kLed,OUTPUT);           // ledleri çıkış olarak tanımladık
-  pinMode(yLed,OUTPUT);           // ledleri çıkış olarak tanımladık
   pinMode(mz80_SagOn, INPUT);     //Kızılotesi sensoru giriş olarak tanımladık
   pinMode(mz80_SolOn, INPUT);     //Kızılotesi sensoru giriş olarak tanımladık
   pinMode(mz80_SagArka, INPUT);   //Kızılotesi sensoru giriş olarak tanımladı
@@ -63,6 +67,14 @@ void setup() {
   // SERVO TANIMLARI
   servoOrta.attach(3);    // Orta Servo tanımlanıyor
   servoArka.attach(9);    // Arka Servo tanımlanıyor
+
+  // **************************************
+  // DC MOTOR TANIMLARI
+  pinMode(enA, OUTPUT);  pinMode(in1, OUTPUT);  pinMode(in2, OUTPUT);   // SOL MOTOR
+  pinMode(enB, OUTPUT);  pinMode(in3, OUTPUT);  pinMode(in4, OUTPUT);   // SAĞ MOTOR
+  
+  // Başlangıç değerleri veriliyor
+  //digitalWrite(in1, LOW);  digitalWrite(in2, HIGH);
     
   Serial.begin(9600);
 }
@@ -76,54 +88,91 @@ void loop() {
   zeminRengiOku();
 
   //servoOrtaKalibreEt();
-  servoOrtaDon(yumurtaRengi);
+  
+  //servoOrtaDon(yumurtaRengi);
   //servoArkaDon(zeminRengi);
 
   // MZ-80 leri çalıştıryoruz
-  mz80_SensorEngelAlgila();
+  //mz80_SensorEngelAlgila();
   //mz80_SensorEngelAlgila(mz80_SolOn);
-  //mz80_SolOnSensor();
-  //mz80_SagArkaSensor();
-  //mz80_SolArkaSensor();
-  //mz80_ArkaSensor();  
+
+  mz80lerden_GelenDegerler();
+
+  motorSol();
+  motorSag();
+}
+
+void mz80lerden_GelenDegerler() {
+  Serial.print("Sağ Ön : ");    Serial.println(analogRead(mz80_SagOn));
+  Serial.print("Sol Ön : ");    Serial.println(analogRead(mz80_SolOn));
+  Serial.print("Sağ Arka : ");  Serial.println(analogRead(mz80_SagArka));
+  Serial.print("Sol Arka : ");  Serial.println(analogRead(mz80_SolArka));
+  Serial.print("Arka : ");      Serial.println(analogRead(mz80_Arka));
 }
 
 // **************************************************************
-// MZ-80 lerden gelen değerlere göre kırmızı ve yeşil ledleri yakıyoruz
-void mz80_SensorEngelAlgila() {
-  if (analogRead(mz80_SagOn) < 1000 || analogRead(mz80_SolOn) < 1000 || analogRead(mz80_SagArka) < 1000)  //engel yoksa kırmızı ledi söndür
-  { digitalWrite(kLed, 1); digitalWrite(yLed, 0);}
-  else                                //engel varsa kırmızı ledi yak
-  { digitalWrite(kLed, 0); digitalWrite(yLed, 1);}
+// SOL MOTOR
+void motorSol() {
+  int solOnValue = analogRead(mz80_SolOn); 
+  int sagOnValue = analogRead(mz80_SagOn); 
+  
+  int pwmSolDC = map(solOnValue, 0, 1023, 0 , 255); 
+  Serial.print("SOL PWM : "); Serial.println(pwmSolDC);
+  analogWrite(enA, pwmSolDC); // PWM signal L298N ye gönderiliyor
+
+  if (solOnValue < 1000 || sagOnValue < 1000) {
+    solDcGeri();
+  }
+  else {
+    solDcIleri();
+  }
+}
+// SAĞ MOTOR
+void motorSag() {
+  int solOnValue = analogRead(mz80_SolOn); 
+  int sagOnValue = analogRead(mz80_SagOn); 
+  
+  int pwmSagDC = map(sagOnValue, 0, 1023, 0 , 255); 
+  Serial.print("SAĞ PWM : "); Serial.println(pwmSagDC);
+  analogWrite(enB, pwmSagDC); // PWM signal L298N ye gönderiliyor
+
+  if (solOnValue < 1000 || sagOnValue < 1000) {
+    sagDcIleri();
+  }
+  else {
+    sagDcIleri();
+  }
+}
+
+void sagDcIleri() {
+    digitalWrite(in3, LOW);
+    digitalWrite(in4, HIGH);
+}
+void sagDcGeri() {
+    digitalWrite(in3, HIGH);
+    digitalWrite(in4, LOW);
+}
+void sagDcDur() {
+    digitalWrite(in3, LOW);
+    digitalWrite(in4, LOW);  
+}
+
+void solDcIleri() {
+    digitalWrite(in1, HIGH);
+    digitalWrite(in2, LOW);
+}
+void solDcGeri() {
+    digitalWrite(in1, LOW);
+    digitalWrite(in2, HIGH);
+}
+void solDcDur() {
+    digitalWrite(in1, LOW);
+    digitalWrite(in2, LOW);
 }
 
 
 
 
-void mz80_SolOnSensor() {
-  if (analogRead(mz80_SolOn) < 1000)  //engel yoksa kırmızı ledi söndür
-  { digitalWrite(kLed, 1); digitalWrite(yLed, 0);}
-  else                                //engel varsa kırmızı ledi yak
-  { digitalWrite(kLed, 0); digitalWrite(yLed, 1);}
-}
-void mz80_SagArkaSensor() {
-  if (analogRead(mz80_SagArka) < 1000)  //engel yoksa kırmızı ledi söndür
-  { digitalWrite(kLed, 1); digitalWrite(yLed, 0);}
-  else                                //engel varsa kırmızı ledi yak
-  { digitalWrite(kLed, 0); digitalWrite(yLed, 1);}
-}
-void mz80_SolArkaSensor() {
-  if (analogRead(mz80_SolArka) < 1000)  //engel yoksa kırmızı ledi söndür
-  { digitalWrite(kLed, 1); digitalWrite(yLed, 0);}
-  else                                //engel varsa kırmızı ledi yak
-  { digitalWrite(kLed, 0); digitalWrite(yLed, 1);}
-}
-void mz80_ArkaSensor() {
-  if (analogRead(mz80_Arka) < 1000)  //engel yoksa kırmızı ledi söndür
-  { digitalWrite(kLed, 1); digitalWrite(yLed, 0);}
-  else                                //engel varsa kırmızı ledi yak
-  { digitalWrite(kLed, 0); digitalWrite(yLed, 1);}
-}
 
 // **************************************************************
 // gelen renk değerlerine göre orta servo ayarlanıyor
