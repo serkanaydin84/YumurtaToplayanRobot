@@ -31,19 +31,35 @@
 Servo servoOrta;
 Servo servoArka;
 
-int degreeOrta, degreeArka;
-int yumurtaKirmizi, yumurtaYesil, yumurtaMavi = 0;
-int zeminKirmizi, zeminYesil, zeminMavi = 0;
-int yumurtaSayisi = 0;
-int motorYonuSag = 0;
+int degreeOrta, degreeArka;          // Servoların hareket derecelerini tutar
+int yumurtaKirmizi, yumurtaYesil, yumurtaMavi;  // Ortadaki renk sönsöründen gelen renklerini tutar
+int zeminKirmizi, zeminYesil, zeminMavi;        // arkadaki renk sönsöründen gelen renklerini tutar
+int yumurtaSayisi = 0;                          // Kaç tane yumurta topladık
+
+int sagOnMz80;      // Sağ öndeki mesafe sensörünün değerini tutar
+int solOnMz80;      // Sol öndeki mesafe sensörünün değerini tutar
+int sagArkaMz80;    // Sağ arkadaki mesafe sensörünün değerini tutar
+int solArkaMz80;    // Sol arkadaki mesafe sensörünün değerini tutar
+int arkaMz80;       // Arkadaki mesafe sensörünün değerini tutar
+
+int hiz = 255;
+int yavas = 100;
 
 bool start = true;        // ilk başta zemini algılayacak ve bu değişken bir defalığına bizimRengimiz değişkenine zemin değerini atadıktan sonra false değerini alarak yarışma sonuna kadar değişmeyecek
 bool koseneGit = false;   // yumurta sayısı yeteri kadar olduğunda ya da belli bir süre geçtiğinde köşesine gidip yumurtaları bırakmak için tanımlandı
+bool ilkHareket = true;   // köşede rengimizi okuduktan sonra false değeri alacak. ilk hareketi vermek için tanımlandı
+bool koseyeGit = false;    // robotumuzun köşeye gitmesini istediğimizde true yapılır
+
 String bizimRengimiz;     // arkadaki renk sensörünün okuduğu değer atanacak
 String yumurtaRengi;      // ortadaki renk sensörünün okuduğu değer atanacak
 String zeminRengi;        // arkadaki renk sensörünün okuduğu değer atanacak,
 
-int pos = 0;
+long rnd;       // RASTGELE DÖNMEK İÇİN TANIMLANDI
+
+
+// ************************************************************************************
+// ****  SETUP ************************************************************************
+// ************************************************************************************
 
 void setup() {
   // *************************************
@@ -72,14 +88,16 @@ void setup() {
   // DC MOTOR TANIMLARI
   pinMode(enA, OUTPUT);  pinMode(in1, OUTPUT);  pinMode(in2, OUTPUT);   // SOL MOTOR
   pinMode(enB, OUTPUT);  pinMode(in3, OUTPUT);  pinMode(in4, OUTPUT);   // SAĞ MOTOR
-  
-  // Başlangıç değerleri veriliyor
-  //digitalWrite(in1, LOW);  digitalWrite(in2, HIGH);
-    
+      
   Serial.begin(9600);
 }
 
+
+// ************************************************************************************
+// ****  LOOP  ************************************************************************
+// ************************************************************************************
 void loop() {
+  // RENK SENSÖRLERİ ZEMİN VE YUMURTA RENKLERİNİ OKUYOR
   //kalibreEt();
   //kalibreEtZemin();
   ortaRenkSensorOku();
@@ -87,85 +105,184 @@ void loop() {
   yumurtaRengiOku();
   zeminRengiOku();
 
+  delay(100);
+
   //servoOrtaKalibreEt();
   
   //servoOrtaDon(yumurtaRengi);
-  //servoArkaDon(zeminRengi);
-
-  // MZ-80 leri çalıştıryoruz
-  //mz80_SensorEngelAlgila();
-  //mz80_SensorEngelAlgila(mz80_SolOn);
 
   mz80lerden_GelenDegerler();
 
-  motorSol();
-  motorSag();
+
+  // DENEME AMACIYLA YAZILDI
+  if (yumurtaSayisi >= 4) {
+    dur(hiz);
+  } else {
+
+  // HAYDEEE GAZAN MÜBAREK OLSUN
+  if(ilkHareket == true) {
+    ilkHareket = false;
+    delay(1000);
+    ileri(hiz);
+  } else {
+
+    // TOPLANAN YUMURTA SAYISI 3'Ü GEÇİNCE KÖŞEYE GİTMESİ SAĞLANIYOR
+    if (yumurtaSayisi >= 3) {
+      koseyeGit = true;
+    }
+    
+    // KÖŞEYE GİTME İŞLEMİ YAPILIYOR
+    if (koseyeGit == true) {
+      
+      // KÖŞE RENGİMİZ BULUNDU. OLEEEEY. ICIH YUMURTLA BAKEM :-)
+      if(bizimRengimiz == zeminRengi) {
+        yumurtla();
+        koseyeGit = false;
+      } else {
+        ileri(hiz);
+
+        // EĞER ŞANSA KÖŞE RENGİMİZ BULUNURSA. ICIH YUMURTLA BAKEM :-)
+        if(bizimRengimiz == zeminRengi) {
+          yumurtla();
+        }
+      }
+      
+    } else {
+
+      // ENGEL YOK BAS GAZA
+      if(sagOnMz80 > 1000 && solOnMz80 > 1000) {
+        ileri(yavas);
+      } 
+      
+      // SOLA DÖN
+      else if(sagOnMz80 < 1000 || solOnMz80 < 1000 && sagArkaMz80 < 1000) { 
+        geri(hiz);
+        delay(250);
+        solaDon(yavas); 
+      } 
+      
+      // SAĞA DÖN
+      else if (sagOnMz80 < 1000 || solOnMz80 < 1000 && solArkaMz80 < 1000) {  
+        geri(hiz);
+        delay(250);
+        sagaDon(yavas);
+      } 
+      
+      // ENGEL VARSA YAVAŞŞŞŞŞŞŞŞŞ, KAFANA GÖRE TAKIL YANİ DÖN
+      else {        
+        geri(hiz);
+        delay(250);
+
+        // RASTGELE DÖN
+        rnd = random(0, 50);
+        if (rnd % 2 == 0) {
+          sagaDon(yavas);}
+        else {
+          solaDon(yavas);}
+      }
+    }
+
+    
+    
+  }
+  }
+
+ 
+  Serial.println("BİZİM RENK : " + bizimRengimiz);
+  Serial.println("zemin renk : " + zeminRengi);   
+  Serial.println("yumurta renk : " + yumurtaRengi);   
+  Serial.println("yumurta SAYISI : " + yumurtaSayisi);   
 }
 
+// SICAK VE POHLU YUMURTALAR GELİYOOOOOOOOOOORR
+void yumurtla() {
+  dur(hiz);
+  servoArkaDon(zeminRengi);
+  delay(2000);
+  ileri(hiz); 
+}
+
+// MESAFE SENSÖRLERİNDEN GELEN DEĞERLERİ GLOBAL DEĞİŞKENLERE ATANIYOR
 void mz80lerden_GelenDegerler() {
-  Serial.print("Sağ Ön : ");    Serial.println(analogRead(mz80_SagOn));
-  Serial.print("Sol Ön : ");    Serial.println(analogRead(mz80_SolOn));
-  Serial.print("Sağ Arka : ");  Serial.println(analogRead(mz80_SagArka));
-  Serial.print("Sol Arka : ");  Serial.println(analogRead(mz80_SolArka));
-  Serial.print("Arka : ");      Serial.println(analogRead(mz80_Arka));
+  sagOnMz80 = analogRead(mz80_SagOn);
+  solOnMz80 = analogRead(mz80_SolOn);
+  sagArkaMz80 = analogRead(mz80_SagArka);
+  solArkaMz80 = analogRead(mz80_SolArka);
+  arkaMz80 = analogRead(mz80_Arka);
+  /*
+  Serial.print("Sağ Ön : ");    Serial.println(sagOnMz80);
+  Serial.print("Sol Ön : ");    Serial.println(solOnMz80);
+  Serial.print("Sağ Arka : ");  Serial.println(sagArkaMz80);
+  Serial.print("Sol Arka : ");  Serial.println(solArkaMz80);
+  Serial.print("Arka : ");      Serial.println(arkaMz80);
+  */
 }
 
 // **************************************************************
-// SOL MOTOR
-void motorSol() {
-  int solOnValue = analogRead(mz80_SolOn); 
-  int sagOnValue = analogRead(mz80_SagOn); 
-  
-  int pwmSolDC = map(solOnValue, 0, 1023, 0 , 255); 
-  Serial.print("SOL PWM : "); Serial.println(pwmSolDC);
-  analogWrite(enA, pwmSolDC); // PWM signal L298N ye gönderiliyor
+// MOTOR HAREKETLERİ
+// **************************************************************
 
-  if (solOnValue < 1000 || sagOnValue < 1000) {
-    solDcGeri();
-  }
-  else {
-    solDcIleri();
-  }
-}
-// SAĞ MOTOR
-void motorSag() {
-  int solOnValue = analogRead(mz80_SolOn); 
-  int sagOnValue = analogRead(mz80_SagOn); 
-  
-  int pwmSagDC = map(sagOnValue, 0, 1023, 0 , 255); 
-  Serial.print("SAĞ PWM : "); Serial.println(pwmSagDC);
-  analogWrite(enB, pwmSagDC); // PWM signal L298N ye gönderiliyor
-
-  if (solOnValue < 1000 || sagOnValue < 1000) {
-    sagDcIleri();
-  }
-  else {
-    sagDcIleri();
-  }
+void ileri(int pwm) {
+  sagDcIleri(pwm);
+  solDcIleri(pwm);
 }
 
-void sagDcIleri() {
+void solaDon(int pwm) {
+  solDcGeri(pwm);
+  sagDcIleri(pwm);
+}
+
+void sagaDon(int pwm){
+  sagDcGeri(pwm);
+  solDcIleri(pwm);
+}
+
+void dur(int pwm) {
+  sagDcDur(pwm);
+  solDcDur(pwm);
+}
+
+void geri(int pwm) {
+  sagDcGeri(pwm);
+  solDcGeri(pwm);
+}
+
+void yavasla(int pwm) {
+  ileri(pwm);
+}
+
+void hizlan(int pwm) {
+  ileri(pwm);
+}
+
+void sagDcIleri(int pwm) {
+    analogWrite(enB, pwm); // PWM signal L298N ye gönderiliyor
     digitalWrite(in3, LOW);
     digitalWrite(in4, HIGH);
 }
-void sagDcGeri() {
+void sagDcGeri(int pwm) {
+    analogWrite(enB, pwm); // PWM signal L298N ye gönderiliyor
     digitalWrite(in3, HIGH);
     digitalWrite(in4, LOW);
 }
-void sagDcDur() {
+void sagDcDur(int pwm) {
+    analogWrite(enB, pwm); // PWM signal L298N ye gönderiliyor
     digitalWrite(in3, LOW);
     digitalWrite(in4, LOW);  
 }
 
-void solDcIleri() {
+void solDcIleri(int pwm) {
+    analogWrite(enA, pwm); // PWM signal L298N ye gönderiliyor
     digitalWrite(in1, HIGH);
     digitalWrite(in2, LOW);
 }
-void solDcGeri() {
+void solDcGeri(int pwm) {
+    analogWrite(enA, pwm); // PWM signal L298N ye gönderiliyor
     digitalWrite(in1, LOW);
     digitalWrite(in2, HIGH);
 }
-void solDcDur() {
+void solDcDur(int pwm) {
+    analogWrite(enA, pwm); // PWM signal L298N ye gönderiliyor
     digitalWrite(in1, LOW);
     digitalWrite(in2, LOW);
 }
@@ -175,17 +292,17 @@ void solDcDur() {
 
 
 // **************************************************************
-// gelen renk değerlerine göre orta servo ayarlanıyor
+// gelen yumurta veya zemin renk değerlerine göre orta servo ayarlanıyor
 void servoOrtaDon(String renk) {
   if (renk == "beyaz") {  // düz ol
     degreeOrta = 90;
     servoOrta.write(degreeOrta);
   } else if (bizimRengimiz == renk) {  // sola dön
-    degreeOrta = 180;
+    degreeOrta = 0;
     servoOrta.write(degreeOrta);
     yumurtaSayisi++;  // toplanlanan kendi yumurta sayımızı arttırıyoruz
   } else {  // sağa dön
-    degreeOrta = 0;
+    degreeOrta = 180;
     servoOrta.write(degreeOrta);
   }
 }
@@ -202,8 +319,11 @@ void servoArkaDon(String renk) {
   }
 }
 
+// ************************************************************************************
+// RENK SEMSÖRLERİ ZEMİN VE YUMURTA RENKERİNE GÖRE DEĞERLERİ GLOBAL DEĞİŞKENLERE ATIYOR
+// ************************************************************************************
 void ortaRenkSensorOku() {
-  delay(50);
+  delay(100);
   // Kırmızı rengi belirleme
   digitalWrite(csOrta_s2, LOW);
   digitalWrite(csOrta_s3, LOW);
@@ -214,7 +334,7 @@ void ortaRenkSensorOku() {
   Serial.print(yumurtaKirmizi);
   Serial.print("\t");
   */
-  delay(50);
+  delay(100);
 
   
   // Yesil rengi belirleme
@@ -227,7 +347,7 @@ void ortaRenkSensorOku() {
   Serial.print(yumurtaYesil);
   Serial.print("\t");
   */
-  delay(50);
+  delay(100);
 
   
   // Mavi rengi belirleme
@@ -240,7 +360,7 @@ void ortaRenkSensorOku() {
   Serial.print(yumurtaMavi);
   Serial.println("\t");
   */
-  delay(50);
+  delay(100);
 }
 
 
@@ -289,17 +409,17 @@ void yumurtaRengiOku() {
   // Orta Sensör beyaz zemin algılanıyor
   if (yumurtaKirmizi < 0 and yumurtaMavi < 0 and yumurtaYesil < 0) {
     yumurtaRengi = "beyaz";
-    Serial.println("Orta Sensör Beyaz zemin algıladı");
+    //Serial.println("Orta Sensör Beyaz zemin algıladı");
   }
   // Orta Sensör kırmızı algılanıyor
   else if (yumurtaKirmizi<90 and yumurtaKirmizi < yumurtaMavi and yumurtaKirmizi < yumurtaYesil) {
     yumurtaRengi = "kirmizi";
-    Serial.println("Orta Sensör Kırmızı yumurta algıladı");
+    //Serial.println("Orta Sensör Kırmızı yumurta algıladı");
   }
   // Orta Sensör mavi algılanıyor
   else if (yumurtaMavi < yumurtaKirmizi and yumurtaMavi < yumurtaYesil ) {
     yumurtaRengi = "mavi";
-    Serial.println("Orta Sensör Mavi yumurta algıladı");
+    //Serial.println("Orta Sensör Mavi yumurta algıladı");
   }
 }
 
@@ -307,7 +427,7 @@ void zeminRengiOku() {
   // Arka Sensör beyaz zemin algılanıyor
   if (zeminKirmizi < 0 and zeminMavi < 0 and zeminYesil < 0) {
     zeminRengi = "beyaz";
-    Serial.println("Arka Sensör Beyaz ZEMİN algıladı");
+    //Serial.println("Arka Sensör Beyaz ZEMİN algıladı : " + bizimRengimiz);
   }
   // Arka Sensör kırmızı zemin algılanıyor
   else if (zeminKirmizi<90 and zeminKirmizi < zeminMavi and zeminKirmizi < zeminYesil) {
@@ -316,8 +436,7 @@ void zeminRengiOku() {
       bizimRengimiz = "kirmizi";
       start = false;  
     }
-    
-    Serial.println("Arka Sensör Kırmızı ZEMİN algıladı");
+    //Serial.println("Arka Sensör Kırmızı ZEMİN algıladı : " + bizimRengimiz);
   }
   // Arka Sensör mavi zemin algılanıyor
   else if (zeminMavi < zeminKirmizi and zeminMavi < zeminYesil ) {
@@ -326,8 +445,7 @@ void zeminRengiOku() {
       bizimRengimiz = "mavi";
       start = false;  
     }
-    
-    Serial.println("Arka Sensör Mavi ZEMİN algıladı");
+    //Serial.println("Arka Sensör Mavi ZEMİN algıladı : " + bizimRengimiz);
   }
 }
 
